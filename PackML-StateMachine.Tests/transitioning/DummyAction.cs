@@ -23,6 +23,7 @@ public class DummyAction : IStateAction
         catch (OperationCanceledException)
         {
             Console.WriteLine("Thread interrupted");
+            throw; // Rethrow to inform the state machine about the cancellation
         }
     }
 }

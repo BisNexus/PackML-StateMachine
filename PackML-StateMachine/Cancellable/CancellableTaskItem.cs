@@ -9,7 +9,6 @@ internal abstract class CancellableTaskItem
     public abstract void Execute();
     public virtual void Cancel()
     {
-        Console.WriteLine("Cancel called for " + Id  );
         if(IsCancelled)
             throw new Exception("Task was aleady cancelled");
         CancellationTokenSource.Cancel();
