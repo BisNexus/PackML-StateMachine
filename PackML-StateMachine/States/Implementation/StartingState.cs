@@ -37,10 +37,10 @@ public class StartingState : StoppableState
         // Clear cannot be fired from Starting -> Do nothing except maybe giving a warning
     }
 
-    public override void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public override void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         IStateAction actionToRun = stateMachine.getStateActionManager().getAction(ActiveStateName.Starting);
-        base.executeAction(actionToRun);
+        base.executeAction(actionToRun, cancellationToken);
 
         // Make sure the current state is still Starting before going to Execute (could have been changed in the mean time).
         if (stateMachine.getState() is StartingState) {

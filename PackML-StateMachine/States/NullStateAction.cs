@@ -4,7 +4,7 @@ public class NullStateAction : IStateAction
     /**
 	 * Execute of a {@link NullStateAction} simply does nothing
 	 */
-    public void execute()
+    public void execute(CancellationToken cancellationToken)
     {
     }
 }

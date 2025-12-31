@@ -164,6 +164,9 @@ public class Isa88StateMachine
      */
     public void setStateAndRunAction(State state)
     {
+        if (this.currentState != null && this.currentState.GetType() == state.GetType())
+            return;
+
         // Stop the current action if there is one
         if (runningAction != null)
         {
@@ -180,7 +183,7 @@ public class Isa88StateMachine
         // Execute the action of the new state
         this.runningAction = actionExecutor.Submit(cancellationToken => 
         {
-            this.currentState.executeActionAndComplete(this);
+            this.currentState.executeActionAndComplete(this, cancellationToken);
         });
     }
 

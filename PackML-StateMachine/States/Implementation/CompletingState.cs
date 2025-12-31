@@ -50,10 +50,10 @@ public class CompletingState : StoppableState
     }
 
 
-    public override void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public override void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         IStateAction actionToRun = stateMachine.getStateActionManager().getAction(ActiveStateName.Completing);
-        base.executeAction(actionToRun);
+        base.executeAction(actionToRun, cancellationToken);
 
         // Make sure the current state is still Completing before going to Complete (could have been changed in the mean time).
         if (stateMachine.getState() is CompletingState) {

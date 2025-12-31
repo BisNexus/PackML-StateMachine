@@ -1,4 +1,7 @@
-﻿using PackML_StateMachine.States;
+﻿using Newtonsoft.Json.Linq;
+using PackML_StateMachine.States;
+using System;
+using System.Security.Cryptography.X509Certificates;
 
 namespace PackML_StateMachine.Tests.transitioning;
 public class DummyAction : IStateAction
@@ -10,13 +13,14 @@ public class DummyAction : IStateAction
         this.dummyActionTime = dummyActionTime;
     }
 
-    public void execute()
+    public void execute(CancellationToken cancellationToken)
     {
         try
         {
-            Thread.Sleep(dummyActionTime);
+            cancellationToken.ThrowIfCancellationRequested(); // <--- Check for cancellation
+            Task.Delay(dummyActionTime, cancellationToken).GetAwaiter().GetResult(); // Simulate work with periodic checks for cancellation
         }
-        catch (ThreadInterruptedException)
+        catch (OperationCanceledException)
         {
             Console.WriteLine("Thread interrupted");
         }

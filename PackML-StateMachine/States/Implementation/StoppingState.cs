@@ -38,14 +38,14 @@ public class StoppingState : StoppableState
         // Clear cannot be fired from Stopping -> Do nothing except maybe giving a warning
     }
 
-    public override void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public override void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         IStateAction actionToRun = stateMachine.getStateActionManager().getAction(ActiveStateName.Stopping);
-        base.executeAction(actionToRun);
+        base.executeAction(actionToRun, cancellationToken);
 
         // Make sure the current state is still Stopping before going to Stopped (could have been changed in the mean time).
         if (stateMachine.getState() is StoppingState) {
-            stateMachine.setStateAndRunAction(new StoppedState());
+            stateMachine.setStateAndRunAction(new StoppedState());          
         }
     }
 }

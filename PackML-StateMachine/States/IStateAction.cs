@@ -2,5 +2,5 @@
 
 public interface IStateAction
 {
-    public void execute();
+    public void execute(CancellationToken cancellationToken);
 }

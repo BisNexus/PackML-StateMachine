@@ -45,10 +45,10 @@ public class ResettingState : StoppableState
     }
 
 
-    public override void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public override void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         IStateAction actionToRun = stateMachine.getStateActionManager().getAction(ActiveStateName.Resetting);
-        base.executeAction(actionToRun);
+        base.executeAction(actionToRun, cancellationToken);
 
         // Make sure the current state is still Resetting before going to Idle (could have been changed in the mean time).
         if (stateMachine.getState() is ResettingState) {

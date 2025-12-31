@@ -18,7 +18,7 @@ public abstract class State : IState
 	 * Execute an action, complete this state and transition to the next state 
 	 * @param stateMachine The current state machine instance
 	 */
-    public virtual void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public virtual void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         // Default implementation: Do nothing
         // Acting states have to override this method in order to automatically complete
@@ -28,9 +28,9 @@ public abstract class State : IState
      * Default of a simple runAction implementation. Could be overriden if e.g. an action has to run in a separate thread
      * @param action {@link IStateAction} that is going to be executed
      */
-    protected void executeAction(IStateAction action)
+    protected void executeAction(IStateAction action, CancellationToken cancellationToken)
     {
-        action.execute();
+        action.execute(cancellationToken);
     }
 
     private static readonly ConcurrentDictionary<Type, ILogger> _loggers = new();

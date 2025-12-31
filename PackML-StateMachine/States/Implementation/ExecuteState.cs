@@ -38,10 +38,10 @@ public class ExecuteState : StoppableState
         // Clear cannot be fired from Execute -> Do nothing except maybe giving a warning
     }
 
-    public override void executeActionAndComplete(Isa88StateMachine stateMachine)
+    public override void executeActionAndComplete(Isa88StateMachine stateMachine, CancellationToken cancellationToken)
     {
         IStateAction actionToRun = stateMachine.getStateActionManager().getAction(ActiveStateName.Execute);
-        base.executeAction(actionToRun);
+        base.executeAction(actionToRun, cancellationToken);
 
         // Make sure the current state is still Execute before going to Completing (could have been changed in the mean time).
         if (stateMachine.getState() is ExecuteState) {
