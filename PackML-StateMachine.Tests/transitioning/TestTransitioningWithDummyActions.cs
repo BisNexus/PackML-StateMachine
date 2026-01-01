@@ -129,7 +129,7 @@ public class TestTransitioningWithDummyActions
                                 .withActionInCompleting(dummyAction)
                                 .build();
         stateMachine.start();
-        WaitForDummyActionToBeCompleted(5); // Wait for starting, executing and completing
+        WaitForDummyActionToBeCompleted(4); // Wait for starting, executing and completing
         Assert.True(stateMachine.getState() is CompleteState,
                 "Machine should switch to CompleteState after transitioning through Starting, Execute and Completing. State is: " + stateMachine.getState());
     }
