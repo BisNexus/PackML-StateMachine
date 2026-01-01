@@ -21,7 +21,7 @@ public class PrintingAction : IStateAction
             while ((DateTime.UtcNow - start).TotalMilliseconds < dummyActionTime)
             {
                 cancellationToken.ThrowIfCancellationRequested(); // <--- Check for cancellation
-                Console.WriteLine($"doing something in state: {stateName}. -- Thread {Thread.CurrentThread.Name ?? Thread.CurrentThread.ManagedThreadId.ToString()}");
+                Console.WriteLine($"doing something in state: {stateName}. -- Thread {Thread.CurrentThread.Name + Thread.CurrentThread.ManagedThreadId.ToString()}");
                 Task.Delay(500, cancellationToken).GetAwaiter().GetResult(); // Simulate work with periodic checks for cancellation
             }
         }
