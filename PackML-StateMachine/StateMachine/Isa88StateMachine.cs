@@ -10,7 +10,8 @@ public class Isa88StateMachine
     private StateActionManager stateActionManager = new StateActionManager();
     private List<IStateChangeObserver> stateChangeObservers = new ();
     private CancellableTask runningAction;
-    private ICancellableSingleTaskPool actionExecutor = new CancellableSingleTaskPool();
+    //private ICancellableSingleTaskPool actionExecutor = new CancellableSingleTaskPool();
+    private ISyncSingleThreadExecutor actionExecutor = new SyncSingleThreadExecutor();
     private static readonly ILogger _logger = StateMachineLogger.For<Isa88StateMachine>();
 
     /**

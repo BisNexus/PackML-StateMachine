@@ -21,13 +21,13 @@ public class CancellableTask<T>
     public bool IsCancelled => _taskItem.IsCancelled;
 }
 
-public class CancellableTask
+public class CancellableTask1
 {
     public string Id { get; }
     public Task Task { get; }
     private readonly CancellableTaskItem _taskItem;
 
-    internal CancellableTask(string id, Task task, CancellableTaskItem taskItem)
+    internal CancellableTask1(string id, Task task, CancellableTaskItem taskItem)
     {
         Id = id;
         Task = task;

@@ -5,7 +5,7 @@ namespace PackML_StateMachine.Threading;
 public interface ICancellableSingleTaskPool : IDisposable
 {
     CancellableTask<T> Submit<T>(Func<CancellationToken, T> task);
-    CancellableTask Submit(Action<CancellationToken> task);
+    CancellableTask1 Submit(Action<CancellationToken> task);
     void Execute(Action<CancellationToken> task);
     bool CancelTask(string taskId);
     void CancelCurrentTask();
@@ -54,7 +54,7 @@ public class CancellableSingleTaskPool : ICancellableSingleTaskPool
         return new CancellableTask<T>(taskItem.Id, tcs.Task, taskItem);
     }
 
-    public CancellableTask Submit(Action<CancellationToken> task)
+    public CancellableTask1 Submit(Action<CancellationToken> task)
     {
         if (_isShutdown)
             throw new InvalidOperationException("TaskPool is shutdown");
@@ -66,7 +66,7 @@ public class CancellableSingleTaskPool : ICancellableSingleTaskPool
         _taskQueue.Enqueue(taskItem);
         _taskAvailable.Set();
 
-        return new CancellableTask(taskItem.Id, tcs.Task, taskItem);
+        return new CancellableTask1(taskItem.Id, tcs.Task, taskItem);
     }
 
     public void Execute(Action<CancellationToken> task)
