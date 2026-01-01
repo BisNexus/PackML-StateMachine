@@ -70,21 +70,18 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 
     public void CancelCurrentTask()
     {
-        lock (_lock)
-        {
+        //lock (_lock)
+        //{
             _currentTaskCts?.Cancel();
-        }
+        //}
     }
 
     private void ProcessTasks()
     {
         foreach (var (action, cts, cancellableTask) in _taskQueue.GetConsumingEnumerable())
         {
-            lock (_lock)
-            {
-                _currentTaskCts = cts;
-            }
-
+            _currentTaskCts = cts;
+            
             try
             {
                 if (!cts.IsCancellationRequested)

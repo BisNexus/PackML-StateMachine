@@ -210,7 +210,7 @@ dotnet pack
 ```
 
 ## Requirements
-- .NET 9.0 or later
+- .NET 10.0 or later
 - Microsoft.Extensions.Hosting (for background service support)
 - Serilog (for logging)
 
