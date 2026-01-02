@@ -1,10 +1,10 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Threading.Tasks.Dataflow;
 
 namespace PackML_StateMachine.Threading;
 
 /// <summary>
 /// High-performance synchronous single-thread executor optimized for low latency.
-/// Executes tasks sequentially on a dedicated background thread.
+/// Executes tasks sequentially using TPL Dataflow.
 /// </summary>
 public interface ISyncSingleThreadExecutor : IDisposable
 {
@@ -44,22 +44,22 @@ public class CancellableTask
 
 public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
-    // ConcurrentQueue is faster than BlockingCollection for our use case
-    private readonly ConcurrentQueue<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
-    private readonly Thread _workerThread;
+    private readonly ActionBlock<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _actionBlock;
     private volatile CancellationTokenSource? _currentTaskCts;
-    private readonly AutoResetEvent _taskAvailableEvent = new(false);
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
     {
-        _workerThread = new Thread(ProcessTasks)
+        var options = new ExecutionDataflowBlockOptions
         {
-            IsBackground = true,
-            Name = "SyncSingleThreadExecutor-Worker",
-            Priority = ThreadPriority.Normal // Maximize scheduling priority
+            MaxDegreeOfParallelism = 1, // Ensures sequential execution
+            BoundedCapacity = DataflowBlockOptions.Unbounded,
+            EnsureOrdered = true // Maintains submission order
         };
-        _workerThread.Start();
+
+        _actionBlock = new ActionBlock<(Action<CancellationToken>, CancellationTokenSource, CancellableTask)>(
+            item => ExecuteTask(item),
+            options);
     }
 
     public CancellableTask Submit(Action<CancellationToken> task)
@@ -70,42 +70,18 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         var cts = new CancellationTokenSource();
         var cancellableTask = new CancellableTask(cts);
 
-        _taskQueue.Enqueue((task, cts, cancellableTask));
-        _taskAvailableEvent.Set(); // Immediate signal
+        if (!_actionBlock.Post((task, cts, cancellableTask)))
+        {
+            cts.Dispose();
+            throw new InvalidOperationException("Failed to submit task - executor may be shutting down");
+        }
 
         return cancellableTask;
     }
 
     public void CancelCurrentTask()
     {
-        _currentTaskCts?.Cancel(); // Lock-free volatile read
-    }
-
-    private void ProcessTasks()
-    {
-        var spinWait = new SpinWait();
-
-        while (!_isShutdown)
-        {
-            // Try to dequeue immediately (hot path)
-            if (_taskQueue.TryDequeue(out var item))
-            {
-                ExecuteTask(item);
-                spinWait.Reset();
-                continue;
-            }
-
-            // Spin before blocking (avoids context switch)
-            if (spinWait.Count < 50)
-            {
-                spinWait.SpinOnce();
-                continue;
-            }
-
-            // Block only after spinning fails
-            spinWait.Reset();
-            _taskAvailableEvent.WaitOne(20); // Short timeout for responsiveness
-        }
+        _currentTaskCts?.Cancel();
     }
 
     private void ExecuteTask((Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task) item)
@@ -138,7 +114,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
     public void Shutdown()
     {
         _isShutdown = true;
-        _taskAvailableEvent.Set();
+        _actionBlock.Complete();
     }
 
     public void Dispose()
@@ -146,11 +122,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         if (!_isShutdown)
             Shutdown();
 
-        _taskAvailableEvent.Set();
-        _workerThread.Join(TimeSpan.FromSeconds(2));
-        _taskAvailableEvent.Dispose();
-
-        while (_taskQueue.TryDequeue(out var item))
-            item.Cts.Dispose();
+        // Wait for all pending tasks to complete
+        _actionBlock.Completion.Wait(TimeSpan.FromSeconds(2));
     }
 }
