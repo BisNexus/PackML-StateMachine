@@ -3,7 +3,7 @@
 namespace PackML_StateMachine.Threading;
 
 /// <summary>
-/// A synchronous single-thread executor similar to Java's Executors.newSingleThreadExecutor().
+/// High-performance synchronous single-thread executor optimized for low latency.
 /// Executes tasks sequentially on a dedicated background thread.
 /// </summary>
 public interface ISyncSingleThreadExecutor : IDisposable
@@ -34,7 +34,6 @@ public class CancellableTask
         }
         catch (ObjectDisposedException)
         {
-            // CTS was already disposed, ignore
         }
     }
 
@@ -45,10 +44,11 @@ public class CancellableTask
 
 public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
-    private readonly BlockingCollection<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
+    // ConcurrentQueue is faster than BlockingCollection for our use case
+    private readonly ConcurrentQueue<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
     private readonly Thread _workerThread;
     private volatile CancellationTokenSource? _currentTaskCts;
-    private readonly ManualResetEventSlim _taskAvailableEvent = new ManualResetEventSlim(false);
+    private readonly AutoResetEvent _taskAvailableEvent = new(false);
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
@@ -57,7 +57,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         {
             IsBackground = true,
             Name = "SyncSingleThreadExecutor-Worker",
-            Priority = ThreadPriority.AboveNormal // Higher priority for better scheduling under load
+            Priority = ThreadPriority.Normal // Maximize scheduling priority
         };
         _workerThread.Start();
     }
@@ -69,102 +69,88 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 
         var cts = new CancellationTokenSource();
         var cancellableTask = new CancellableTask(cts);
-        
-        _taskQueue.Add((task, cts, cancellableTask));
-        _taskAvailableEvent.Set(); // Signal immediately for faster wake-up
-        
+
+        _taskQueue.Enqueue((task, cts, cancellableTask));
+        _taskAvailableEvent.Set(); // Immediate signal
+
         return cancellableTask;
     }
 
     public void CancelCurrentTask()
     {
-        // Use volatile read - no lock needed, reduces contention
-        var currentCts = _currentTaskCts;
-        currentCts?.Cancel();
+        _currentTaskCts?.Cancel(); // Lock-free volatile read
     }
 
     private void ProcessTasks()
     {
         var spinWait = new SpinWait();
-        
+
         while (!_isShutdown)
         {
-            try
+            // Try to dequeue immediately (hot path)
+            if (_taskQueue.TryDequeue(out var item))
             {
-                // Optimistic spinning before blocking - reduces context switches
-                while (_taskQueue.Count == 0 && !_isShutdown)
-                {
-                    if (spinWait.Count < 10) // Spin for a short time
-                    {
-                        spinWait.SpinOnce();
-                    }
-                    else
-                    {
-                        // Reset spin and wait on event
-                        spinWait.Reset();
-                        _taskAvailableEvent.Wait(100); // Wait with timeout to check shutdown
-                        _taskAvailableEvent.Reset();
-                        break;
-                    }
-                }
-
-                if (_isShutdown)
-                    break;
-
-                if (_taskQueue.TryTake(out var item, 0))
-                {
-                    var (action, cts, cancellableTask) = item;
-                    
-                    // Volatile write for visibility
-                    _currentTaskCts = cts;
-                    
-                    try
-                    {
-                        if (!cts.IsCancellationRequested)
-                        {
-                            action(cts.Token);
-                        }
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        // Task was cancelled, continue to next
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"Task execution error: {ex.Message}");
-                    }
-                    finally
-                    {
-                        // Volatile write to null
-                        _currentTaskCts = null;
-                        cancellableTask.MarkDisposed();
-                        cts.Dispose();
-                        spinWait.Reset(); // Reset for next iteration
-                    }
-                }
+                ExecuteTask(item);
+                spinWait.Reset();
+                continue;
             }
-            catch (Exception ex)
+
+            // Spin before blocking (avoids context switch)
+            if (spinWait.Count < 50)
             {
-                Console.WriteLine($"ProcessTasks error: {ex.Message}");
+                spinWait.SpinOnce();
+                continue;
             }
+
+            // Block only after spinning fails
+            spinWait.Reset();
+            _taskAvailableEvent.WaitOne(20); // Short timeout for responsiveness
+        }
+    }
+
+    private void ExecuteTask((Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task) item)
+    {
+        var (action, cts, cancellableTask) = item;
+        _currentTaskCts = cts;
+
+        try
+        {
+            if (!cts.IsCancellationRequested)
+            {
+                action(cts.Token);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Task execution error: {ex.Message}");
+        }
+        finally
+        {
+            _currentTaskCts = null;
+            cancellableTask.MarkDisposed();
+            cts.Dispose();
         }
     }
 
     public void Shutdown()
     {
         _isShutdown = true;
-        _taskQueue.CompleteAdding();
-        _taskAvailableEvent.Set(); // Wake up worker thread
+        _taskAvailableEvent.Set();
     }
 
     public void Dispose()
     {
         if (!_isShutdown)
             Shutdown();
-            
-        _taskAvailableEvent.Set(); // Ensure thread wakes up
+
+        _taskAvailableEvent.Set();
         _workerThread.Join(TimeSpan.FromSeconds(2));
-        _taskQueue.Dispose();
         _taskAvailableEvent.Dispose();
+
+        while (_taskQueue.TryDequeue(out var item))
+            item.Cts.Dispose();
     }
 }
