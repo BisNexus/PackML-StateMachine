@@ -209,6 +209,13 @@ To create a NuGet package:
 dotnet pack
 ```
 
+Docker Tests
+
+```bash
+docker build -t packml-tests .
+docker run --rm packml-tests
+```
+
 ## Requirements
 - .NET 10.0 or later
 - Microsoft.Extensions.Hosting (for background service support)

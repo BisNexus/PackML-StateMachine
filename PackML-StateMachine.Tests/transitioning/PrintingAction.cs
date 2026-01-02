@@ -28,6 +28,7 @@ public class PrintingAction : IStateAction
         catch (OperationCanceledException)
         {
             Console.WriteLine($"Printing Action interrupted in State {stateName}");
+            throw;
         }
     }
 }

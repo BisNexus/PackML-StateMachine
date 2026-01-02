@@ -165,9 +165,6 @@ public class Isa88StateMachine
      */
     public void setStateAndRunAction(State state)
     {
-        if (this.currentState != null && this.currentState.GetType() == state.GetType())
-            return;
-
         // Stop the current action if there is one
         if (runningAction != null)
         {

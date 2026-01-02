@@ -7,7 +7,7 @@ namespace PackML_StateMachine.States.Implementation;
  * actions in {@link StoppingState} should not lead to product damages. After having executed the action in stopping, the state machine will
  * transition to the {@link StoppedState}.
  */
-public class StoppingState : StoppableState
+public class StoppingState : AbortableState
 {
     public override void start(Isa88StateMachine stateMachine)
     {
