@@ -18,7 +18,7 @@ public class DummyAction : IStateAction
         try
         {
             cancellationToken.ThrowIfCancellationRequested(); // <--- Check for cancellation
-            Task.Delay(dummyActionTime, cancellationToken).GetAwaiter().GetResult(); // Simulate work with periodic checks for cancellation
+            Task.Delay(dummyActionTime, cancellationToken).Wait(cancellationToken); // Simulate work with periodic checks for cancellation
         }
         catch (OperationCanceledException)
         {
