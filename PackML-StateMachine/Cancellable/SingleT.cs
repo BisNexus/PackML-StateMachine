@@ -46,20 +46,20 @@ public class CancellableTask
 public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
     private readonly BlockingCollection<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = [];
-    //private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly CancellationTokenSource _shutdownCts = new();
     private readonly Task _workerTask;
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
-    {/*
-        _workerTask = Task.Factory.StartNew( () => ProcessTasks(),//_shutdownCts.Token),
-            //_shutdownCts.Token,
+    { 
+        _workerTask = Task.Factory.StartNew( () => ProcessTasks(_shutdownCts.Token),
+            _shutdownCts.Token,
             TaskCreationOptions.LongRunning,
             TaskScheduler.Default);
-        */
+         
 
         //_workerTask = Task.Factory.StartNew(() => ProcessTasks(),TaskCreationOptions.LongRunning);
-
+/*
         var _workerThread = new Thread(ProcessTasks)
         {
             IsBackground = true,
@@ -69,6 +69,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         };
          
         _workerThread.Start();
+*/
 
     }
 
@@ -86,11 +87,11 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         return cancellableTask;
     }
 
-    private void ProcessTasks()//CancellationToken shutdownToken)
+    private void ProcessTasks(CancellationToken shutdownToken)
     {
         //try
         //{
-            foreach (var item in _taskQueue.GetConsumingEnumerable())//shutdownToken))
+            foreach (var item in _taskQueue.GetConsumingEnumerable(shutdownToken))
             {
                 ExecuteTask(item);
             }
@@ -132,7 +133,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
             return;
 
         _isShutdown = true;
-        //_shutdownCts.Cancel();
+        _shutdownCts.Cancel();
 
         // Signal no more items will be added; unblocks GetConsumingEnumerable
         _taskQueue.CompleteAdding();
@@ -142,18 +143,18 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
     {
         if (!_isShutdown)
             Shutdown();
-        /*
+        
         try
         {
-            _workerTask.Wait(TimeSpan.FromSeconds(2));
+            _workerTask.Wait(TimeSpan.FromSeconds(1));
         }
         catch (AggregateException ex) when (ex.InnerException is OperationCanceledException)
         {
         }
-        */
+        
 
         _taskQueue.Dispose();
-        //_shutdownCts.Dispose();
+        _shutdownCts.Dispose();
     }
 }
 
