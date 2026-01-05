@@ -26,7 +26,7 @@ public class PrintingAction : IStateAction
         }
         catch (OperationCanceledException)
         {
-            //throw;
+            throw;
         }
     }
 }

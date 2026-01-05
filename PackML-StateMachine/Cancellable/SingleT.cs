@@ -48,7 +48,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
     private readonly ConcurrentQueue<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
     private readonly Thread _workerThread;
     private volatile CancellationTokenSource? _currentTaskCts;
-    private readonly AutoResetEvent _taskAvailableEvent = new(false);
+    private readonly ManualResetEvent _taskAvailableEvent = new(false);
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
@@ -83,28 +83,22 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 
     private void ProcessTasks()
     {
-        var spinWait = new SpinWait();
-
         while (!_isShutdown)
         {
-            // Hot path: try immediate dequeue
-            if (_taskQueue.TryDequeue(out var item))
+            // Wait for tasks to be available
+            _taskAvailableEvent.WaitOne();
+
+            // Process all available tasks
+            while (_taskQueue.TryDequeue(out var item))
             {
                 ExecuteTask(item);
-                spinWait.Reset();
-                continue;
             }
 
-            // Aggressive spinning before blocking
-            if (spinWait.Count < 100) // Increased from 50
+            // Reset event only if queue is empty
+            if (_taskQueue.IsEmpty)
             {
-                spinWait.SpinOnce();
-                continue;
+                _taskAvailableEvent.Reset();
             }
-
-            // Block only after extensive spinning
-            spinWait.Reset();
-            _taskAvailableEvent.WaitOne(10); // Reduced from 20ms
         }
     }
 
