@@ -9,7 +9,6 @@ namespace PackML_StateMachine.Threading;
 public interface ISyncSingleThreadExecutor : IDisposable
 {
     CancellableTask Submit(Action<CancellationToken> task);
-    void CancelCurrentTask();
     void Shutdown();
 }
 
@@ -45,20 +44,19 @@ public class CancellableTask
 public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
     private readonly ConcurrentQueue<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
-    private readonly Thread _workerThread;
-    private volatile CancellationTokenSource? _currentTaskCts;
-    private readonly AutoResetEvent _taskAvailableEvent = new(false);
+    //private readonly Thread _workerThread;
+    private readonly CancellationTokenSource _shutdownCts = new();
+    private readonly Task _workerTask;
+    private readonly ManualResetEventSlim _taskAvailableEvent = new(false);
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
     {
-        _workerThread = new Thread(ProcessTasks)
-        {
-            IsBackground = true,
-            Name = "SyncSingleThreadExecutor-Worker",
-            Priority = ThreadPriority.Normal
-        };
-        _workerThread.Start();
+        _workerTask = Task.Factory.StartNew(
+            () => ProcessTasks(_shutdownCts.Token),
+            _shutdownCts.Token,
+            TaskCreationOptions.LongRunning, // dedicated worker-style thread
+            TaskScheduler.Default);
     }
 
     public CancellableTask Submit(Action<CancellationToken> task)
@@ -75,42 +73,26 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         return cancellableTask;
     }
 
-    public void CancelCurrentTask()
+    private void ProcessTasks(CancellationToken shutdownToken)
     {
-        _currentTaskCts?.Cancel();
-    }
-
-    private void ProcessTasks()
-    {
-        var spinWait = new SpinWait();
-
-        while (!_isShutdown)
+        while (!shutdownToken.IsCancellationRequested)
         {
-            // Hot path: try immediate dequeue
-            if (_taskQueue.TryDequeue(out var item))
+            while (_taskQueue.TryDequeue(out var item))
             {
                 ExecuteTask(item);
-                spinWait.Reset();
-                continue;
             }
 
-            // Aggressive spinning before blocking
-            if (spinWait.Count < 100) // Increased from 50
-            {
-                spinWait.SpinOnce();
-                continue;
-            }
+            if (shutdownToken.IsCancellationRequested)
+                break;
 
-            // Block only after extensive spinning
-            spinWait.Reset();
-            _taskAvailableEvent.WaitOne(10); // Reduced from 20ms
+            _taskAvailableEvent.Wait();
+            _taskAvailableEvent.Reset();
         }
     }
 
     private void ExecuteTask((Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task) item)
     {
         var (action, cts, cancellableTask) = item;
-        _currentTaskCts = cts;
 
         try
         {
@@ -126,17 +108,20 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         {
             Console.WriteLine($"Task execution error: {ex.Message}");
         }
+        /*
         finally
         {
             _currentTaskCts = null;
             cancellableTask.MarkDisposed();
             cts.Dispose();
         }
+        */
     }
 
     public void Shutdown()
     {
         _isShutdown = true;
+        _shutdownCts.Cancel();
         _taskAvailableEvent.Set();
     }
 
@@ -145,8 +130,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         if (!_isShutdown)
             Shutdown();
 
-        _taskAvailableEvent.Set();
-        _workerThread.Join(TimeSpan.FromSeconds(2));
+        _workerTask.Dispose();
         _taskAvailableEvent.Dispose();
 
         while (_taskQueue.TryDequeue(out var item))

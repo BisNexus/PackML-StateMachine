@@ -165,6 +165,7 @@ public class Isa88StateMachine
      */
     public void setStateAndRunAction(State state)
     {
+        Console.WriteLine(state.GetType().Name+" "+DateTime.Now.ToString("HH:mm:ss.ffffff"));
         // Stop the current action if there is one
         if (runningAction != null)
         {

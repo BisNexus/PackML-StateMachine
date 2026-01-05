@@ -214,6 +214,10 @@ Docker Tests
 ```bash
 docker build -t packml-tests .
 docker run --rm packml-tests
+
+//simulate less cpus
+docker run --cpus=2 packml-tests
+
 ```
 
 ## Requirements
