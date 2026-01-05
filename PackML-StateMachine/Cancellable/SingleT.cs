@@ -45,32 +45,21 @@ public class CancellableTask
 
 public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
-    private readonly BlockingCollection<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = [];
-    private readonly CancellationTokenSource _shutdownCts = new();
-    private readonly Task _workerTask;
+    private readonly ConcurrentQueue<(Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task)> _taskQueue = new();
+    private readonly Thread _workerThread;
+    private volatile CancellationTokenSource? _currentTaskCts;
+    private readonly AutoResetEvent _taskAvailableEvent = new(false);
     private volatile bool _isShutdown;
 
     public SyncSingleThreadExecutor()
-    { 
-        _workerTask = Task.Factory.StartNew( () => ProcessTasks(_shutdownCts.Token),
-            _shutdownCts.Token,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
-         
-
-        //_workerTask = Task.Factory.StartNew(() => ProcessTasks(),TaskCreationOptions.LongRunning);
-/*
-        var _workerThread = new Thread(ProcessTasks)
+    {
+        _workerThread = new Thread(ProcessTasks)
         {
             IsBackground = true,
-            Priority = ThreadPriority.Highest
-
-
+            Name = "SyncSingleThreadExecutor-Worker",
+            Priority = ThreadPriority.Normal
         };
-         
         _workerThread.Start();
-*/
-
     }
 
     public CancellableTask Submit(Action<CancellationToken> task)
@@ -81,30 +70,48 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         var cts = new CancellationTokenSource();
         var cancellableTask = new CancellableTask(cts);
 
-        // Add blocks only if bounded; here it's unbounded, so it's effectively enqueue
-        _taskQueue.Add((task, cts, cancellableTask));
+        _taskQueue.Enqueue((task, cts, cancellableTask));
+        _taskAvailableEvent.Set();
 
         return cancellableTask;
     }
 
-    private void ProcessTasks(CancellationToken shutdownToken)
+    public void CancelCurrentTask()
     {
-        //try
-        //{
-            foreach (var item in _taskQueue.GetConsumingEnumerable(shutdownToken))
+        _currentTaskCts?.Cancel();
+    }
+
+    private void ProcessTasks()
+    {
+        var spinWait = new SpinWait();
+
+        while (!_isShutdown)
+        {
+            // Hot path: try immediate dequeue
+            if (_taskQueue.TryDequeue(out var item))
             {
                 ExecuteTask(item);
+                spinWait.Reset();
+                continue;
             }
-       // }
-        //catch (OperationCanceledException)
-        //{
-            // Shutdown requested, exit loop
-       // }
+
+            // Aggressive spinning before blocking
+            if (spinWait.Count < 100) // Increased from 50
+            {
+                spinWait.SpinOnce();
+                continue;
+            }
+
+            // Block only after extensive spinning
+            spinWait.Reset();
+            _taskAvailableEvent.WaitOne(10); // Reduced from 20ms
+        }
     }
 
     private void ExecuteTask((Action<CancellationToken> Action, CancellationTokenSource Cts, CancellableTask Task) item)
     {
         var (action, cts, cancellableTask) = item;
+        _currentTaskCts = cts;
 
         try
         {
@@ -122,6 +129,7 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
         }
         finally
         {
+            _currentTaskCts = null;
             cancellableTask.MarkDisposed();
             cts.Dispose();
         }
@@ -129,32 +137,21 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
 
     public void Shutdown()
     {
-        if (_isShutdown)
-            return;
-
         _isShutdown = true;
-        _shutdownCts.Cancel();
-
-        // Signal no more items will be added; unblocks GetConsumingEnumerable
-        _taskQueue.CompleteAdding();
+        _taskAvailableEvent.Set();
     }
 
     public void Dispose()
     {
         if (!_isShutdown)
             Shutdown();
-        
-        try
-        {
-            _workerTask.Wait(TimeSpan.FromSeconds(1));
-        }
-        catch (AggregateException ex) when (ex.InnerException is OperationCanceledException)
-        {
-        }
-        
 
-        _taskQueue.Dispose();
-        _shutdownCts.Dispose();
+        _taskAvailableEvent.Set();
+        _workerThread.Join(TimeSpan.FromSeconds(2));
+        _taskAvailableEvent.Dispose();
+
+        while (_taskQueue.TryDequeue(out var item))
+            item.Cts.Dispose();
     }
 }
 

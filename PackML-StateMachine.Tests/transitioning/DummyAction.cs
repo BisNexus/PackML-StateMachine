@@ -22,7 +22,7 @@ public class DummyAction : IStateAction
         }
         catch (OperationCanceledException)
         {
-             
+            throw; 
         }
     }
 }
