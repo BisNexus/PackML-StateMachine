@@ -1,5 +1,5 @@
 # Use the official .NET 10 SDK image
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 # Set the working directory inside the container
 WORKDIR /src
@@ -15,4 +15,4 @@ RUN dotnet build --no-restore
 
 # Run tests (change the path to your test project if needed)
 # This will output results to the console and also save a TRX file in /src/TestResults
-CMD ["dotnet", "test", "PackML-StateMachine.Tests/PackML-StateMachine.Tests.csproj", "--no-build",  "--verbosity", "normal", "--logger:trx;LogFileName=TestResults/test_results.trx"]
+CMD ["dotnet", "test", "PackML-StateMachine.Tests/PackML-StateMachine.Tests.csproj", "--no-build"]

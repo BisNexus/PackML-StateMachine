@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-PackML_StateMachine-40bf82b2-9ad6-44e0-b0ac-725496d27e9a</UserSecretsId>
@@ -15,5 +15,6 @@
 	  <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
 	  <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
 	  <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.4" />
+	  <PackageReference Include="System.Reactive" Version="6.1.0" />
   </ItemGroup>
 </Project>

@@ -30,6 +30,7 @@ public abstract class State : IState
      */
     protected void executeAction(IStateAction action, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         action.execute(cancellationToken);
     }
 
