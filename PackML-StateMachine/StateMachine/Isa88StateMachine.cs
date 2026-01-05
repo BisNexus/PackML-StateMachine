@@ -11,7 +11,7 @@ public class Isa88StateMachine
     private List<IStateChangeObserver> stateChangeObservers = new ();
     private CancellableTask runningAction;
     //private ICancellableSingleTaskPool actionExecutor = new CancellableSingleTaskPool();
-    private ISyncSingleThreadExecutor actionExecutor = new DataflowSyncSingleThreadExecutor();
+    private ISyncSingleThreadExecutor actionExecutor = new RxSyncSingleThreadExecutor();
     private static readonly ILogger _logger = StateMachineLogger.For<Isa88StateMachine>();
 
     /**
