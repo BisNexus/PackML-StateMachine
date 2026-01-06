@@ -15,4 +15,4 @@ RUN dotnet build --no-restore
 
 # Run tests (change the path to your test project if needed)
 # This will output results to the console and also save a TRX file in /src/TestResults
-CMD ["dotnet", "test", "PackML-StateMachine.Tests/PackML-StateMachine.Tests.csproj", "--no-build"]
+CMD ["dotnet", "test", "--no-build"]

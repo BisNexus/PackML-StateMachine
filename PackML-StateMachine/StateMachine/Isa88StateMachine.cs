@@ -1,6 +1,7 @@
 ﻿using PackML_StateMachine.States;
 using PackML_StateMachine.Threading;
 using System.Threading;
+using System.Threading.Tasks.Dataflow;
 
 namespace PackML_StateMachine.StateMachine;
 
@@ -11,7 +12,16 @@ public class Isa88StateMachine
     private List<IStateChangeObserver> stateChangeObservers = new ();
     private CancellableTask runningAction;
  
-    private ISyncSingleThreadExecutor actionExecutor = new SyncSingleThreadExecutor();
+    //private ISyncSingleThreadExecutor actionExecutor = new DataflowSyncSingleThreadExecutor();
+    ActionBlock<Func<Task>> singleThreadExecutor = new ActionBlock<Func<Task>>(
+    async action => await action(),
+    new ExecutionDataflowBlockOptions
+    {
+        MaxDegreeOfParallelism = 1,
+        EnsureOrdered = true,
+        BoundedCapacity = DataflowBlockOptions.Unbounded
+    });
+    CancellationTokenSource cancellationTokenSource ;
 
     private static readonly ILogger _logger = StateMachineLogger.For<Isa88StateMachine>();
 
@@ -168,9 +178,9 @@ public class Isa88StateMachine
     {
         Console.WriteLine(state.GetType().Name+" "+DateTime.Now.ToString("HH:mm:ss.ffffff"));
         // Stop the current action if there is one
-        if (runningAction != null)
+        if (cancellationTokenSource?.Token.IsCancellationRequested == false)
         {
-            runningAction.Cancel();
+            cancellationTokenSource.Cancel();
         }
 
         // Set the new state and notify all observers
@@ -180,11 +190,18 @@ public class Isa88StateMachine
             observer.onStateChanged(this.currentState);
         }
 
+        /*
         // Execute the action of the new state
         this.runningAction = actionExecutor.Submit(cancellationToken => 
         {
             this.currentState.executeActionAndComplete(this, cancellationToken);
         });
+        */
+        cancellationTokenSource = new CancellationTokenSource();
+        var token = cancellationTokenSource.Token;
+        singleThreadExecutor.Post(async () =>          
+            this.currentState.executeActionAndComplete(this, token)
+        );
     }
 
     /**

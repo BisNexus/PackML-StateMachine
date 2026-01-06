@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json.Linq;
-using PackML_StateMachine.States;
+﻿using PackML_StateMachine.States;
 using System;
 using System.Security.Cryptography.X509Certificates;
 

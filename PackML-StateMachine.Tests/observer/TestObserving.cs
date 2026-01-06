@@ -1,13 +1,13 @@
 ﻿using PackML_StateMachine.StateMachine;
 using PackML_StateMachine.States;
-using Xunit.Abstractions;
 using Xunit.Sdk;
+using Xunit.v3;
 
 
 namespace PackML_StateMachine.Tests.observer;
 
 [Collection("TestObservingIsolation")]
-[TestCaseOrderer("PackML_StateMachine.Tests.observer.PriorityOrderer", "PackML-StateMachine.Tests")]
+[TestCaseOrderer(typeof(PriorityOrderer))]
 public class TestObserving
 {
     class ExampleObserver : IStateChangeObserver
@@ -134,32 +134,32 @@ public class TestPriorityAttribute : System.Attribute
     }
 }
 
-// Custom Xunit test orderer
+// Custom Xunit v3 test orderer
 public class PriorityOrderer : ITestCaseOrderer
 {
-    public IEnumerable<TTestCase> OrderTestCases<TTestCase>(IEnumerable<TTestCase> testCases) where TTestCase : ITestCase
+    public IReadOnlyCollection<TTestCase> OrderTestCases<TTestCase>(IReadOnlyCollection<TTestCase> testCases) where TTestCase : notnull, ITestCase
     {
-        var sortedMethods = new SortedDictionary<int, List<Xunit.Abstractions.ITestCase>>();
+        var sortedMethods = new SortedDictionary<int, List<TTestCase>>();
 
         foreach (var testCase in testCases)
         {
             var priority = 0;
 
-            foreach (var attr in testCase.TestMethod.Method.GetCustomAttributes(typeof(TestPriorityAttribute).AssemblyQualifiedName))
+            // In xUnit v3, use Traits to get the priority
+            if (testCase.Traits.TryGetValue("Priority", out var priorityValues) && priorityValues.Count > 0)
             {
-                priority = attr.GetNamedArgument<int>("Priority");
+                int.TryParse(priorityValues.First(), out priority);
             }
 
             GetOrCreate(sortedMethods, priority).Add(testCase);
         }
 
-        foreach (var list in sortedMethods.Keys.Select(priority => sortedMethods[priority]))
+        var result = new List<TTestCase>();
+        foreach (var priority in sortedMethods.Keys)
         {
-            foreach (var testCase in list)
-            {
-                yield return (TTestCase)testCase;
-            }
+            result.AddRange(sortedMethods[priority]);
         }
+        return result;
     }
 
     private static TValue GetOrCreate<TKey, TValue>(IDictionary<TKey, TValue> dictionary, TKey key)

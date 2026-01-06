@@ -149,56 +149,6 @@ public class SyncSingleThreadExecutor : ISyncSingleThreadExecutor
     }
 }
 
-public class RxSyncSingleThreadExecutor : ISyncSingleThreadExecutor
-{
-    private readonly EventLoopScheduler _scheduler;
-
-    public RxSyncSingleThreadExecutor()
-    {
-        _scheduler = new EventLoopScheduler();
-    }
-
-    public CancellableTask Submit(Action<CancellationToken> task)
-    {
-        var cts = new CancellationTokenSource();
-        var cancellableTask = new CancellableTask(cts);
-
-        _scheduler.Schedule(() =>
-        {
-            try
-            {
-                if (!cts.IsCancellationRequested)
-                {
-                    task(cts.Token);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Task execution error: {ex.Message}");
-            }
-            finally
-            {
-                cancellableTask.MarkDisposed();
-                //cts.Dispose();
-            }
-        });
-
-        return cancellableTask;
-    }
-
-    public void Shutdown()
-    {
-        _scheduler.Dispose();
-    }
-
-    public void Dispose()
-    {
-        _scheduler.Dispose();
-    }
-}
 
 public class DataflowSyncSingleThreadExecutor : ISyncSingleThreadExecutor
 {
@@ -215,10 +165,11 @@ public class DataflowSyncSingleThreadExecutor : ISyncSingleThreadExecutor
             new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = 1,
-                TaskScheduler = dedicatedScheduler,  // Use dedicated thread
+                //TaskScheduler = dedicatedScheduler,  // Use dedicated thread
                 EnsureOrdered = true,
                 SingleProducerConstrained = false,
-                BoundedCapacity = DataflowBlockOptions.Unbounded
+                BoundedCapacity = DataflowBlockOptions.Unbounded,
+                TaskScheduler = TaskScheduler.FromCurrentSynchronizationContext()
             });
     }
 
