@@ -9,13 +9,8 @@
 	  <IsPackable>false</IsPackable>
 
 	  <OutputType>Exe</OutputType>
-	  <EnableMSTestRunner>true</EnableMSTestRunner>
 
-	  <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
 
-	  <!-- Add this to your project file. -->
-	  <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
-	  <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
   </PropertyGroup>
 
   <ItemGroup>
