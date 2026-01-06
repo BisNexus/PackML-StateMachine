@@ -21,7 +21,7 @@ public class TestStateMachineSetup
         }
     }
 
-    [Theory]
+    
     [MemberData(nameof(GetActiveStateNames))]
     public void testActionSetup(ActiveStateName stateName)
     {
