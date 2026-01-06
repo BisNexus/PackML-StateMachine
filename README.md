@@ -1,5 +1,6 @@
 [![NuGet](https://img.shields.io/nuget/v/PackML-StateMachine.svg?label=NuGet)](https://www.nuget.org/packages/PackML-StateMachine/)
-
+[![Tests](https://github.com/LegacyOfKain/PackML-StateMachine/actions/workflows/dotnet.yml/badge.svg?event=push)](https://github.com/LegacyOfKain/PackML-StateMachine/actions/workflows/dotnet.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)        
 # .NET PackML-StateMachine
 A .NET implementation of the state machine standardized in PackML. The state machine guarantees that only 'valid' transitions can be executed. Have a look at the following figure which depicts the state machine of PackML:
 
