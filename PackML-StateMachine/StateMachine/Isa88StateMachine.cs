@@ -10,9 +10,6 @@ public class Isa88StateMachine
     private State currentState;
     private StateActionManager stateActionManager = new StateActionManager();
     private List<IStateChangeObserver> stateChangeObservers = new ();
-    private CancellableTask runningAction;
- 
-    //private ISyncSingleThreadExecutor actionExecutor = new DataflowSyncSingleThreadExecutor();
     ActionBlock<Func<Task>> singleThreadExecutor = new ActionBlock<Func<Task>>(
     async action => await action(),
     new ExecutionDataflowBlockOptions
@@ -176,7 +173,6 @@ public class Isa88StateMachine
      */
     public void setStateAndRunAction(State state)
     {
-        Console.WriteLine(state.GetType().Name+" "+DateTime.Now.ToString("HH:mm:ss.ffffff"));
         // Stop the current action if there is one
         if (cancellationTokenSource?.Token.IsCancellationRequested == false)
         {
